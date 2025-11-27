@@ -1,0 +1,62 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: ims-db
+    restart: always
+    environment:
+      MYSQL_DATABASE: root
+      MYSQL_ROOT_PASSWORD: root
+      # Optional: create an app user instead of using root
+      # MYSQL_USER: appuser
+      # MYSQL_PASSWORD: apppass
+    ports:
+      - "3308:3306"      # host:container
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - ecommerce-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./IMS_BE
+      dockerfile: Dockerfile.backend
+    container_name: ims-backend
+    restart: always
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/ims
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      # Make sure your app listens on 8081 (server.port=8081)
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    networks:
+      - ims-net
+
+  frontend:
+    build:
+      context: ./IMS_FE
+      dockerfile: Dockerfile.frontend
+    container_name: ecommerce-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - ims-net
+
+volumes:
+  db_data:
+
+networks:
+  ecommerce-net:
+    driver: bridge
